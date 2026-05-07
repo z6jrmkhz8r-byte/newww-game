@@ -1,0 +1,1322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="description" content="腾讯ima.copilot全面接入DeepSeek V4-Flash模型，284B参数，体验更智能的知识协作">
+<meta property="og:title" content="ima.copilot × DeepSeek V4-Flash 全面接入">
+<meta property="og:description" content="腾讯ima.copilot全面接入DeepSeek V4-Flash模型，更精准、更流畅的问答与文档处理体验">
+<meta property="og:type" content="website">
+<title>ima.copilot × DeepSeek V4-Flash · 全面接入</title>
+
+<!-- GSAP + ScrollTrigger（CDN） -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/TextPlugin.min.js"></script>
+
+<style>
+/* =========================================
+   CSS 变量 & 全局重置
+   ========================================= */
+:root {
+  --blue:    #0052D9;
+  --blue2:   #3370FF;
+  --cyan:    #00D4FF;
+  --deep:    #001A40;
+  --navy:    #050D1A;
+  --orange:  #FF6B35;
+  --green:   #00E676;
+  --pale:    #E8F0FF;
+  --bg:      #F4F7FF;
+  --white:   #FFFFFF;
+  --t1:      #1A1A2E;
+  --t2:      #4A5568;
+  --t3:      #8896A4;
+  --border:  rgba(0,82,217,0.1);
+  --grad:    linear-gradient(135deg, #0052D9 0%, #00D4FF 100%);
+  --grad-o:  linear-gradient(135deg, #FF6B35, #FF9F5A);
+  --grad-glow: linear-gradient(135deg, rgba(0,212,255,0.3), rgba(0,82,217,0.3));
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{font-size:16px;scroll-behavior:smooth;}
+body{
+  font-family: -apple-system,BlinkMacSystemFont,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+  background:var(--bg);color:var(--t1);
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+  word-break:keep-all;
+}
+
+/* =========================================
+   进度条 & 导航
+   ========================================= */
+#prog{
+  position:fixed;top:0;left:0;height:3px;
+  background:var(--grad);z-index:9999;width:0;
+  transition:width .15s ease-out;
+  box-shadow: 0 0 10px rgba(0,212,255,0.5);
+}
+.nav{
+  position:fixed;top:0;left:0;right:0;z-index:200;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 24px;height:56px;
+  background:rgba(255,255,255,0.92);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);
+  transition: all 0.3s ease;
+}
+.nav-left{display:flex;align-items:center;gap:10px;}
+
+/* ── ima 熊猫 logo 容器 ── */
+.nav-icon{
+  width:34px;height:34px;border-radius:9px;
+  background:var(--white);
+  background-image:url('ima-panda-logo.png');
+  background-size:contain;background-repeat:no-repeat;background-position:center;
+  display:flex;align-items:center;justify-content:center;
+  position:relative;overflow:hidden;
+  border:1px solid rgba(0,0,0,.06);box-shadow:0 1px 4px rgba(0,0,0,.07);
+}
+.nav-icon::after{content:none;}
+
+.nav-name{font-size:17px;font-weight:700;white-space:nowrap;
+  background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.nav-badge{
+  font-size:11px;font-weight:600;color:#fff;white-space:nowrap;
+  background:var(--grad-o);padding:4px 10px;border-radius:12px;
+  animation:pulse 2s ease-in-out infinite;
+}
+@keyframes pulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(255,107,53,.45);}
+  50%{box-shadow:0 0 0 7px rgba(255,107,53,0);}
+}
+.nav-dots{display:flex;gap:6px;align-items:center;}
+.nav-dot{
+  width:6px;height:6px;border-radius:50%;
+  background:var(--border);cursor:pointer;transition:all .3s;
+}
+.nav-dot.active{background:var(--blue);transform:scale(1.4);}
+
+/* =========================================
+   全屏分页容器
+   ========================================= */
+.pages-wrap{margin-top:56px;}
+.page{
+  min-height:calc(100vh - 56px);
+  position:relative;overflow:hidden;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:60px 24px 50px;
+}
+
+/* =========================================
+   HERO 页 (page-0)
+   ========================================= */
+.page-hero{
+  background:var(--navy);
+  min-height:100vh;margin-top:-56px;padding-top:116px;
+}
+/* 动态网格背景 */
+.hero-grid{
+  position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(0,82,217,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,82,217,.06) 1px,transparent 1px);
+  background-size:50px 50px;
+  animation:gridShift 25s linear infinite;
+}
+@keyframes gridShift{from{background-position:0 0;}to{background-position:50px 50px;}}
+
+/* 光晕 orb */
+.orb{position:absolute;border-radius:50%;pointer-events:none;}
+.orb-a{width:600px;height:600px;background:radial-gradient(circle,rgba(0,82,217,.35),transparent 65%);top:-200px;left:-200px;animation:orbA 12s ease-in-out infinite;filter:blur(100px);}
+.orb-b{width:500px;height:500px;background:radial-gradient(circle,rgba(0,212,255,.25),transparent 65%);bottom:-150px;right:-150px;animation:orbB 14s ease-in-out infinite;filter:blur(100px);}
+.orb-c{width:300px;height:300px;background:radial-gradient(circle,rgba(255,107,53,.15),transparent 70%);top:50%;left:55%;animation:orbA 10s ease-in-out infinite reverse;filter:blur(80px);}
+@keyframes orbA{0%,100%{transform:translate(0,0) scale(1);}50%{transform:translate(40px,-30px) scale(1.1);}}
+@keyframes orbB{0%,100%{transform:translate(0,0) scale(1);}50%{transform:translate(-30px,30px) scale(.9);}}
+
+/* canvas 粒子 */
+#pcanvas{position:absolute;inset:0;width:100%;height:100%;}
+
+.hero-inner{position:relative;z-index:2;text-align:center;max-width:800px;}
+@media(min-width:1024px){
+  .hero-inner{max-width:900px;}
+}
+
+.hero-chip{
+  display:inline-flex;align-items:center;gap:8px;
+  border:1px solid rgba(0,212,255,.4);
+  background:rgba(0,212,255,.1);
+  border-radius:24px;padding:6px 18px;
+  font-size:13px;color:var(--cyan);font-weight:500;
+  margin-bottom:32px;white-space:nowrap;
+  opacity:0;transform:translateY(-14px);
+  box-shadow: 0 0 20px rgba(0,212,255,0.15);
+}
+.chip-dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:blink 1.6s ease-in-out infinite;box-shadow: 0 0 8px var(--green);}
+@keyframes blink{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.4;transform:scale(.65);}}
+
+.hero-pretitle{
+  font-size:clamp(14px,2vw,16px);color:rgba(255,255,255,.6);
+  letter-spacing:2px;text-transform:uppercase;margin-bottom:14px;white-space:nowrap;
+  opacity:0;transform:translateY(20px);
+}
+.hero-title{
+  font-size:clamp(34px,7vw,64px);font-weight:900;line-height:1.12;
+  letter-spacing:-.5px;margin-bottom:20px;
+  color:#fff;
+  display:inline-block;
+}
+.hero-title .t-blue{
+  background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.hero-title .t-orange{
+  background:var(--grad-o);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  position:relative;
+}
+.hero-title .t-orange::after{
+  content:'';position:absolute;bottom:-2px;left:0;right:0;height:3px;
+  background:var(--grad-o);border-radius:2px;
+}
+
+.hero-sub{
+  font-size:clamp(15px,2.5vw,18px);color:rgba(255,255,255,.65);
+  line-height:1.75;margin-bottom:40px;max-width:540px;margin-left:auto;margin-right:auto;
+  opacity:0;transform:translateY(20px);
+}
+
+/* 数据条 */
+.hero-stats{
+  display:flex;align-items:center;justify-content:center;
+  gap:28px;margin-bottom:44px;flex-wrap:wrap;
+  opacity:0;transform:translateY(20px);
+}
+.stat{text-align:center;}
+.stat-v{
+  font-size:clamp(28px,5vw,40px);font-weight:900;line-height:1;display:block;
+  background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.stat-l{font-size:12px;color:rgba(255,255,255,.45);margin-top:5px;letter-spacing:.5px;white-space:nowrap;}
+.stat-sep{width:1px;height:40px;background:rgba(255,255,255,.1);}
+
+/* 按钮 */
+.hero-btns{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;opacity:0;transform:translateY(20px);}
+.btn-p{
+  display:inline-flex;align-items:center;gap:8px;
+  background:var(--grad);color:#fff;
+  padding:14px 30px;border-radius:14px;
+  font-size:15px;font-weight:600;text-decoration:none;
+  border:none;cursor:pointer;
+  transition:all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position:relative;overflow:hidden;
+  box-shadow: 0 4px 20px rgba(0,82,217,0.3);
+}
+.btn-p::after{
+  content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.25),transparent);
+  transition:left .5s;
+}
+.btn-p:hover::after{left:100%;}
+.btn-p:hover{transform:translateY(-4px) scale(1.02);box-shadow:0 16px 40px rgba(0,82,217,0.5);}
+.btn-s{
+  display:inline-flex;align-items:center;gap:8px;
+  background:rgba(255,255,255,.08);color:rgba(255,255,255,.95);
+  padding:14px 30px;border-radius:14px;
+  font-size:15px;font-weight:600;text-decoration:none;
+  border:1.5px solid rgba(255,255,255,.25);cursor:pointer;
+  transition:all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  backdrop-filter:blur(10px);
+}
+.btn-s:hover{background:rgba(255,255,255,.15);border-color:rgba(0,212,255,.5);transform:translateY(-4px) scale(1.02);box-shadow:0 0 20px rgba(0,212,255,0.2);}
+
+/* 滚动提示 - 移到 hero-inner 内 */
+.scroll-hint{
+  position:absolute;bottom:-60px;left:50%;transform:translateX(-50%);
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  opacity:0;color:rgba(255,255,255,.35);font-size:12px;letter-spacing:.5px;
+}
+.scroll-mouse{
+  width:22px;height:34px;border:1.5px solid rgba(255,255,255,.25);border-radius:11px;
+  display:flex;justify-content:center;padding-top:5px;
+}
+.scroll-wheel{width:3px;height:7px;background:rgba(255,255,255,.4);border-radius:2px;animation:scrollWh 1.8s ease-in-out infinite;}
+@keyframes scrollWh{0%,100%{transform:translateY(0);opacity:1;}100%{transform:translateY(8px);opacity:0;}}
+
+/* =========================================
+   Section 通用样式
+   ========================================= */
+.sec-tag{
+  font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+  color:var(--blue);background:var(--pale);
+  padding:5px 14px;border-radius:20px;
+  display:inline-block;margin-bottom:16px;white-space:nowrap;
+}
+.sec-title{
+  font-size:clamp(26px,5vw,40px);font-weight:900;
+  color:var(--t1);text-align:center;margin-bottom:14px;letter-spacing:-.3px;word-break:keep-all;white-space:nowrap;
+}
+.sec-desc{
+  font-size:15px;color:var(--t2);text-align:center;
+  max-width:520px;margin:0 auto 48px;line-height:1.75;word-break:keep-all;
+}
+.sec-header{text-align:center;margin-bottom:56px;}
+
+/* =========================================
+   页面2：模型参数 (page-1)
+   ========================================= */
+.page-params{background:var(--bg);}
+
+.params-ring-wrap{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:600px;height:600px;border-radius:50%;
+  border:1px solid rgba(0,82,217,.05);
+  animation:ringRotate 30s linear infinite;pointer-events:none;
+}
+.params-ring-wrap::before{
+  content:'';position:absolute;inset:40px;border-radius:50%;
+  border:1px dashed rgba(0,82,217,.06);
+}
+@keyframes ringRotate{from{transform:translate(-50%,-50%) rotate(0);}to{transform:translate(-50%,-50%) rotate(360deg);}}
+
+/* 参数页：3卡布局（去掉1M上下文卡） */
+.params-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:20px;
+  max-width:760px;width:100%;position:relative;z-index:1;
+}
+@media(max-width:640px){.params-grid{grid-template-columns:1fr;}}
+
+.param-card{
+  background:var(--white);border-radius:22px;padding:28px 20px 24px;
+  text-align:center;border:1px solid var(--border);
+  transition:all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change:transform;
+  position:relative;overflow:hidden;
+}
+.param-card::before{
+  content:'';position:absolute;bottom:0;left:0;right:0;height:3px;
+  background:var(--grad);transform:scaleX(0);transform-origin:center;transition:transform .4s;
+}
+.param-card:hover::before{transform:scaleX(1);}
+.param-card:hover{transform:translateY(-10px) scale(1.03);box-shadow:0 28px 70px rgba(0,82,217,.18);}
+
+.pc-icon{
+  width:56px;height:56px;border-radius:16px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:24px;margin:0 auto 16px;
+  background:linear-gradient(135deg,rgba(0,82,217,.1),rgba(0,212,255,.08));
+  position:relative;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.param-card:hover .pc-icon{transform:scale(1.1) rotate(5deg);}
+/* SVG 图标 */
+.pc-icon svg{width:28px;height:28px;}
+.pc-val{
+  font-size:28px;font-weight:900;line-height:1;margin-bottom:8px;
+  background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.pc-val.orange{background:var(--grad-o);-webkit-background-clip:text;background-clip:text;}
+.pc-name{font-size:13px;font-weight:700;color:var(--t1);margin-bottom:5px;white-space:nowrap;}
+.pc-desc{font-size:11.5px;color:var(--t3);line-height:1.55;word-break:break-word;}
+@media(min-width:1024px){
+  .pc-desc{font-size:12px;line-height:1.6;}
+}
+
+/* =========================================
+   页面3：能力对话演示 (page-2) - 线性对话流程
+   ========================================= */
+.page-demo{background:linear-gradient(170deg,var(--deep) 0%,#092070 55%,#0052D9 100%);}
+
+/* 装饰光线 */
+.demo-light{
+  position:absolute;width:2px;height:160px;
+  background:linear-gradient(to bottom,transparent,rgba(0,191,255,.4),transparent);
+  animation:lightMove 3s ease-in-out infinite;
+  border-radius:2px;
+}
+.demo-light-1{top:10%;left:8%;animation-delay:0s;}
+.demo-light-2{top:30%;right:10%;animation-delay:1s;}
+.demo-light-3{bottom:15%;left:18%;animation-delay:2s;}
+@keyframes lightMove{0%,100%{opacity:.3;transform:scaleY(1);}50%{opacity:1;transform:scaleY(1.5);}}
+
+.demo-wrap{
+  display:flex;flex-direction:column;
+  max-width:800px;width:100%;position:relative;z-index:1;
+  gap:0;
+}
+@media(min-width:1024px){
+  .demo-wrap{max-width:900px;}
+  .page-demo{padding:40px 24px 40px !important;}
+  .demo-chat{min-height:400px !important;padding:24px !important;}
+}
+@media(max-width:640px){
+  .demo-wrap{max-width:100%;}
+}
+
+.demo-chat{
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+  border-radius:22px;padding:24px;backdrop-filter:blur(16px);
+  display:flex;flex-direction:column;gap:16px;
+  min-height:480px;
+}
+@media(min-width:1024px){
+  .demo-chat{min-height:520px;padding:32px;}
+}
+@media(max-width:640px){
+  .demo-chat{min-height:420px;padding:20px;}
+}
+.chat-header{
+  display:flex;align-items:center;gap:10px;
+  padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,.08);
+  margin-bottom:2px;
+}
+
+/* 聊天头像 - ima 熊猫 */
+.chat-avatar{
+  width:36px;height:36px;border-radius:10px;
+  background:var(--white);
+  background-image:url('ima-panda-logo.png');
+  background-size:contain;background-repeat:no-repeat;background-position:center;
+  border:1px solid rgba(0,0,0,.06);
+  flex-shrink:0;
+  box-shadow: 0 2px 10px rgba(0,82,217,0.15);
+}
+@media(min-width:1024px){
+  .chat-avatar{width:42px;height:42px;}
+}
+.chat-name{font-size:14px;font-weight:700;color:#fff;white-space:nowrap;}
+.chat-model{font-size:11px;color:var(--cyan);background:rgba(0,212,255,.12);padding:2px 8px;border-radius:6px;margin-top:2px;white-space:nowrap;}
+
+/* 对话气泡 */
+.bubble{
+  display:flex;gap:10px;align-items:flex-start;
+  opacity:0;transform:translateY(20px);
+  margin-bottom:12px;
+}
+@media(min-width:1024px){
+  .bubble{gap:12px;margin-bottom:16px;}
+}
+.bubble.user{flex-direction:row-reverse;}
+.bubble-av{
+  width:32px;height:32px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:12px;
+}
+@media(min-width:1024px){
+  .bubble-av{width:38px;height:38px;font-size:13px;}
+}
+.bubble.user .bubble-av{background:var(--pale);color:var(--blue);font-weight:700;}
+/* 气泡头像 - ima 熊猫 */
+.bubble.ima .bubble-av{
+  background:var(--white);
+  background-image:url('ima-panda-logo.png');
+  background-size:contain;background-repeat:no-repeat;background-position:center;
+  border-radius:8px;border:1px solid rgba(0,0,0,.06);
+}
+.bubble-txt{
+  max-width:75%;padding:10px 14px;border-radius:14px;
+  font-size:13px;line-height:1.6;word-break:break-word;
+}
+@media(max-width:640px){
+  .bubble-txt{max-width:85%;}
+}
+@media(min-width:1200px){
+  .bubble-txt{max-width:55%;font-size:14px;}
+}
+.bubble.user .bubble-txt{background:rgba(255,255,255,.12);color:rgba(255,255,255,.95);border-bottom-right-radius:4px;}
+.bubble.ima .bubble-txt{background:rgba(0,82,217,.3);color:rgba(255,255,255,.98);border-bottom-left-radius:4px;box-shadow: 0 2px 15px rgba(0,82,217,0.2);}
+
+/* 打字光标 */
+.cursor{display:inline-block;width:2px;height:14px;background:var(--cyan);margin-left:2px;vertical-align:middle;animation:cursorBlink .8s step-end infinite;}
+@keyframes cursorBlink{0%,100%{opacity:1;}50%{opacity:0;}}
+
+/* 思考状态 */
+.thinking{display:flex;align-items:center;gap:4px;margin-top:4px;}
+.thinking-dot{width:6px;height:6px;border-radius:50%;background:var(--cyan);animation:thinkBounce 1s ease-in-out infinite;}
+.thinking-dot:nth-child(2){animation-delay:0.15s;}
+.thinking-dot:nth-child(3){animation-delay:0.3s;}
+@keyframes thinkBounce{0%,100%{transform:translateY(0);opacity:0.5;}50%{transform:translateY(-5px);opacity:1;}}
+
+/* =========================================
+   页面4：特性卡片 (page-3)
+   ========================================= */
+.page-features{background:var(--bg);}
+
+/* 浮动装饰圆 */
+.feat-deco{
+  position:absolute;border-radius:50%;pointer-events:none;
+}
+.feat-deco-1{width:400px;height:400px;background:var(--blue);top:-150px;right:-100px;animation:driftA 16s ease-in-out infinite;opacity:.05;}
+.feat-deco-2{width:300px;height:300px;background:var(--cyan);bottom:-100px;left:-60px;animation:driftA 12s ease-in-out infinite reverse;opacity:.05;}
+@keyframes driftA{0%,100%{transform:translate(0,0);}50%{transform:translate(25px,-20px);}}
+
+/* 特性：2卡布局（去掉Copilot协作卡） */
+.feats-grid{
+  display:grid;grid-template-columns:1fr;gap:20px;
+  max-width:720px;width:100%;position:relative;z-index:1;
+}
+@media(min-width:580px){.feats-grid{grid-template-columns:repeat(2,1fr);}}
+
+.feat-card{
+  background:var(--white);border-radius:22px;padding:30px 24px;
+  border:1px solid var(--border);
+  position:relative;overflow:hidden;
+  transition:all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+/* 左侧彩色竖条 */
+.feat-card::after{
+  content:'';position:absolute;left:0;top:20%;bottom:20%;width:4px;
+  background:var(--grad);border-radius:0 4px 4px 0;
+  transform:scaleY(0);transform-origin:center;transition:transform .4s;
+}
+.feat-card:hover::after{transform:scaleY(1);}
+.feat-card:hover{transform:translateY(-12px) translateX(6px);box-shadow:0 32px 70px rgba(0,82,217,.15);border-color:rgba(0,82,217,.15);}
+
+/* 背景装饰数字 */
+.feat-bg-num{
+  position:absolute;right:16px;top:16px;
+  font-size:64px;font-weight:900;color:rgba(0,82,217,.04);
+  line-height:1;pointer-events:none;
+  transition:color .3s;
+}
+.feat-card:hover .feat-bg-num{color:rgba(0,82,217,.07);}
+
+.feat-icon-wrap{
+  width:52px;height:52px;border-radius:14px;
+  background:var(--pale);
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:18px;
+  transition:all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.feat-icon-wrap svg{width:26px;height:26px;}
+.feat-card:hover .feat-icon-wrap{transform:scale(1.18) rotate(10deg);box-shadow:0 8px 25px rgba(0,82,217,0.2);}
+.feat-title{font-size:17px;font-weight:800;color:var(--t1);margin-bottom:10px;white-space:nowrap;}
+.feat-desc{font-size:13.5px;color:var(--t2);line-height:1.75;word-break:break-word;}
+@media(min-width:1024px){
+  .feat-desc{font-size:14px;line-height:1.8;}
+}
+
+/* 特性标签 */
+.feat-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px;}
+.feat-tag{
+  font-size:11px;font-weight:600;color:var(--blue);
+  background:var(--pale);padding:3px 9px;border-radius:8px;
+  border:1px solid var(--border);white-space:nowrap;
+  transition: all 0.3s ease;
+}
+.feat-tag:hover{background:var(--blue);color:#fff;}
+
+/* =========================================
+   页面5：场景使用 深色 (page-4)
+   ========================================= */
+.page-scene{
+  background:var(--navy);
+  position:relative;overflow:hidden;
+}
+/* 波浪装饰 */
+.scene-wave{
+  position:absolute;bottom:0;left:0;right:0;
+  height:120px;pointer-events:none;
+}
+
+.scene-grid-bg{
+  position:absolute;inset:0;
+  background:
+    radial-gradient(circle at 20% 50%,rgba(0,82,217,.15) 0%,transparent 50%),
+    radial-gradient(circle at 80% 30%,rgba(0,212,255,.1) 0%,transparent 40%);
+}
+
+.scene-inner{max-width:900px;width:100%;position:relative;z-index:1;}
+.scene-inner .sec-tag{color:var(--cyan);background:rgba(0,212,255,.12);}
+.scene-inner .sec-title{color:#fff;}
+.scene-inner .sec-desc{color:rgba(255,255,255,.65);}
+
+/* 场景卡：3列布局（去掉Copilot研究） */
+.scene-cards{
+  display:grid;grid-template-columns:1fr;gap:16px;
+}
+@media(min-width:640px){.scene-cards{grid-template-columns:repeat(3,1fr);gap:20px;}}
+@media(min-width:1200px){.scene-cards{grid-template-columns:repeat(3,1fr);gap:24px;}}
+
+.scene-card{
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:20px;padding:26px;
+  backdrop-filter:blur(12px);
+  background:rgba(255,255,255,.06);
+  transition:all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position:relative;overflow:hidden;cursor:default;
+}
+/* 右下角装饰光晕 */
+.scene-card::after{
+  content:'';position:absolute;right:-30px;bottom:-30px;
+  width:120px;height:120px;border-radius:50%;
+  background:radial-gradient(circle,rgba(0,212,255,.15),transparent 70%);
+  transition:opacity .3s;opacity:0;
+}
+.scene-card:hover::after{opacity:1;}
+.scene-card:hover{background:rgba(255,255,255,.12);border-color:rgba(0,212,255,.4);transform:translateY(-8px) scale(1.02);box-shadow:0 20px 50px rgba(0,212,255,0.15);}
+
+.sc-head{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
+.sc-icon{
+  width:42px;height:42px;border-radius:11px;
+  background:rgba(0,212,255,.12);
+  display:flex;align-items:center;justify-content:center;
+  transition:all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.sc-icon svg{width:20px;height:20px;}
+.scene-card:hover .sc-icon{transform:scale(1.15) rotate(-8deg);box-shadow:0 4px 15px rgba(0,212,255,0.3);}
+.sc-title{font-size:15px;font-weight:700;color:#fff;white-space:nowrap;}
+.sc-desc{font-size:13px;color:rgba(255,255,255,.65);line-height:1.7;word-break:break-word;}
+@media(min-width:1024px){
+  .sc-desc{font-size:14px;line-height:1.75;}
+}
+.sc-pill{
+  display:inline-flex;align-items:center;gap:5px;
+  margin-top:12px;font-size:11px;font-weight:600;
+  color:var(--cyan);background:rgba(0,212,255,.12);
+  border:1px solid rgba(0,212,255,.3);padding:3px 10px;border-radius:8px;white-space:nowrap;
+}
+
+/* =========================================
+   页面6：Copilot 流程 (page-5)
+   ========================================= */
+.page-copilot{background:var(--bg);}
+
+.copilot-hero-card{
+  background:var(--white);border-radius:26px;
+  border:1px solid var(--border);overflow:hidden;
+  box-shadow:0 24px 80px rgba(0,82,217,.1);
+  max-width:840px;width:100%;position:relative;z-index:1;
+}
+.cop-head{
+  background:var(--grad);padding:28px 32px;
+  display:flex;align-items:center;gap:18px;position:relative;overflow:hidden;
+}
+.cop-head::before{
+  content:'';position:absolute;inset:0;
+  background:url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23fff' fill-opacity='0.04'%3E%3Ccircle cx='20' cy='20' r='3'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* Copilot logo 容器 */
+.cop-logo{
+  width:52px;height:52px;
+  background:var(--white);
+  border-radius:15px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  position:relative;z-index:1;
+  border:1px solid rgba(0,0,0,.06);
+  box-shadow: 0 2px 10px rgba(0,82,217,0.1);
+}
+.cop-logo svg{width:38px;height:38px;}
+.cop-head-txt{position:relative;z-index:1;}
+.cop-head-txt h3{font-size:20px;font-weight:800;color:#fff;}
+.cop-head-txt p{font-size:13px;color:rgba(255,255,255,.72);margin-top:3px;}
+
+.cop-body{padding:32px;}
+.cop-steps{display:grid;grid-template-columns:1fr;gap:16px;}
+@media(min-width:580px){.cop-steps{grid-template-columns:repeat(3,1fr);}}
+
+/* 步骤之间连接线（桌面）*/
+.cop-steps-wrap{position:relative;}
+@media(min-width:580px){
+  .cop-steps-wrap::before{
+    content:'';position:absolute;
+    top:36px;left:calc(16.6% + 8px);right:calc(16.6% + 8px);
+    height:2px;background:linear-gradient(to right,var(--blue),var(--cyan));
+    border-radius:2px;z-index:0;opacity:.25;
+  }
+}
+
+.cop-step{
+  background:var(--bg);border-radius:16px;padding:22px 18px;
+  transition:all .35s;position:relative;z-index:1;
+}
+.cop-step:hover{background:var(--pale);transform:translateY(-4px);box-shadow:0 12px 32px rgba(0,82,217,.1);}
+.cs-num{
+  width:32px;height:32px;border-radius:50%;
+  background:var(--grad);color:#fff;font-size:13px;font-weight:800;
+  display:flex;align-items:center;justify-content:center;margin-bottom:14px;
+  box-shadow:0 4px 14px rgba(0,82,217,.35);
+}
+.cs-title{font-size:15px;font-weight:700;color:var(--t1);margin-bottom:7px;white-space:nowrap;}
+.cs-desc{font-size:13px;color:var(--t2);line-height:1.65;word-break:break-word;}
+@media(min-width:1024px){
+  .cs-desc{font-size:14px;line-height:1.7;}
+}
+
+/* =========================================
+   页面7：CTA (page-6)
+   ========================================= */
+.page-cta{background:var(--navy);min-height:calc(100vh - 56px);}
+
+.cta-wrap{position:relative;z-index:2;text-align:center;max-width:620px;}
+.cta-wrap .btn-p{
+  position:relative;z-index:5;
+}
+.cta-glow{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:700px;height:700px;border-radius:50%;
+  background:radial-gradient(circle,rgba(0,82,217,.18),transparent 60%);
+  pointer-events:none;animation:ctaGlow 5s ease-in-out infinite;
+}
+@keyframes ctaGlow{0%,100%{transform:translate(-50%,-50%) scale(1);}50%{transform:translate(-50%,-50%) scale(1.08);}}
+
+.cta-badge{
+  display:inline-flex;align-items:center;gap:8px;
+  background:rgba(0,191,255,.1);border:1px solid rgba(0,191,255,.3);
+  border-radius:20px;padding:7px 18px;
+  font-size:13px;color:var(--cyan);font-weight:500;margin-bottom:28px;white-space:nowrap;
+}
+.cta-title{
+  font-size:clamp(30px,6vw,52px);font-weight:900;color:#fff;
+  line-height:1.15;margin-bottom:20px;letter-spacing:-.5px;
+}
+.cta-title .t-grad{
+  background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.cta-sub{font-size:16px;color:rgba(255,255,255,.6);line-height:1.75;max-width:460px;margin:0 auto 36px;word-break:keep-all;}
+
+/* 切换路径 */
+.path-guide{
+  display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+  border-radius:50px;padding:12px 22px;margin-bottom:36px;font-size:13px;color:rgba(255,255,255,.55);
+  max-width:520px;margin-left:auto;margin-right:auto;word-break:keep-all;
+}
+.path-step{color:#fff;font-weight:600;white-space:nowrap;}
+.path-arr{color:rgba(0,191,255,.6);font-weight:700;}
+.path-final{color:var(--cyan);font-weight:700;white-space:nowrap;}
+
+/* =========================================
+   浮动返回顶部
+   ========================================= */
+.back-top{
+  position:fixed;bottom:28px;right:22px;
+  width:44px;height:44px;border-radius:50%;
+  background:var(--grad);color:#fff;font-size:15px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;z-index:300;text-decoration:none;
+  opacity:0;transform:translateY(12px);
+  transition:all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow:0 6px 22px rgba(0,82,217,0.4);
+}
+.back-top.show{opacity:1;transform:translateY(0);}
+.back-top:hover{transform:translateY(-6px) scale(1.1);box-shadow:0 12px 35px rgba(0,82,217,0.6);}
+
+/* =========================================
+   响应式微调
+   ========================================= */
+/* 全局移动端页面压缩 */
+@media(max-width:640px){
+  .page{padding:36px 16px 28px !important;min-height:100vh;}
+  .sec-header{margin-bottom:28px !important;}
+  .sec-title{margin-bottom:10px !important;font-size:22px !important;}
+  .sec-desc{margin-bottom:28px !important;font-size:13.5px !important;}
+}
+/* HERO 页单独处理 */
+@media(max-width:640px){
+  .page-hero{min-height:100vh;padding-top:calc(56px + 32px) !important;padding-bottom:32px !important;}
+  .hero-title{font-size:28px !important;}
+  .hero-sub{font-size:13px !important;margin-bottom:24px !important;}
+  .hero-stats{margin-bottom:28px !important;gap:16px !important;}
+  .hero-btns{flex-direction:column;align-items:center;gap:10px !important;}
+  .scroll-hint{bottom:-80px !important;}
+}
+/* 参数页 */
+@media(max-width:640px){
+  .page-params{padding:32px 14px 24px !important;}
+  .page-params .sec-header{margin-bottom:20px !important;}
+  .param-card{padding:18px 14px 16px !important;}
+  .pc-val{font-size:22px !important;}
+  .pc-desc{font-size:11px !important;}
+}
+/* 对话演示页 */
+@media(max-width:640px){
+  .page-demo{padding:32px 10px 24px !important;}
+  .demo-chat{padding:16px !important;min-height:auto !important;}
+  .bubble-txt{font-size:12px !important;padding:8px 11px !important;}
+}
+/* 特性页 */
+@media(max-width:640px){
+  .page-features{padding:32px 14px 24px !important;}
+  .feat-card{padding:20px 16px !important;}
+  .feat-desc{font-size:12px !important;}
+}
+/* 场景页 */
+@media(max-width:640px){
+  .page-scene{padding:32px 14px 24px !important;}
+  .scene-card{padding:18px 14px !important;}
+  .sc-desc{font-size:12px !important;}
+}
+/* CTA 页 */
+@media(max-width:640px){
+  .page-cta{padding:48px 16px 40px !important;min-height:100vh !important;}
+  .cta-title{font-size:26px !important;margin-bottom:14px !important;}
+  .cta-sub{font-size:13px !important;margin-bottom:24px !important;}
+  .path-guide{padding:10px 14px !important;font-size:11.5px !important;margin-bottom:24px !important;}
+}
+</style>
+</head>
+<body>
+
+<!-- 滚动进度条 -->
+<div id="prog"></div>
+
+<!-- 顶部导航 -->
+<nav class="nav">
+  <div class="nav-left">
+    <!-- ima 熊猫 logo -->
+    <div class="nav-icon">
+      <img src="ima-panda-logo.png" alt="ima" style="width:100%;height:100%;object-fit:contain;">
+    </div>
+    <span class="nav-name">ima.copilot</span>
+  </div>
+  <div class="nav-dots" id="navDots"></div>
+  <div class="nav-badge">✦ 全新上线</div>
+</nav>
+
+<!-- ===================== 所有页面容器 ===================== -->
+<div class="pages-wrap">
+
+<!-- ===== PAGE 0 · HERO ===== -->
+<section class="page page-hero" data-page="0">
+  <div class="hero-grid"></div>
+  <div class="orb orb-a"></div>
+  <div class="orb orb-b"></div>
+  <div class="orb orb-c"></div>
+  <canvas id="pcanvas"></canvas>
+
+  <div class="hero-inner">
+    <div class="hero-chip">
+      <span class="chip-dot"></span>
+      最新模型已上线 · 立即可用
+    </div>
+    <p class="hero-pretitle">Tencent ima.copilot AI Workbench</p>
+    <h1 class="hero-title">
+      <span>ima.copilot 全面接入</span><br>
+      <span><span class="t-orange">DeepSeek V4-Flash</span><span class="t-blue">模型</span></span>
+    </h1>
+    <p class="hero-sub">腾讯ima.copilot AI工作台现已接入全新旗舰模型<br><span style="white-space:nowrap;">更精准、更流畅的问答与文档处理体验</span></p>
+
+    <div class="hero-stats">
+      <div class="stat">
+        <span class="stat-v" id="cntParam">0</span>
+        <div class="stat-l">总参数规模</div>
+      </div>
+      <div class="stat-sep"></div>
+      <div class="stat">
+        <span class="stat-v">Flash</span>
+        <div class="stat-l">极速推理</div>
+      </div>
+      <div class="stat-sep"></div>
+      <div class="stat">
+        <span class="stat-v">V4</span>
+        <div class="stat-l">旗舰版本</div>
+      </div>
+    </div>
+
+    <div class="hero-btns">
+      <a href="#page1" class="btn-p">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5,3 19,12 5,21"/></svg>
+        探索新特性
+      </a>
+      <a href="#page5" class="btn-s">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        立即体验
+      </a>
+    </div>
+
+    <div class="scroll-hint" id="scrollHint">
+      <div class="scroll-mouse"><div class="scroll-wheel"></div></div>
+      <span>向下探索</span>
+    </div>
+  </div>
+</section>
+
+<!-- ===== PAGE 1 · 参数 ===== -->
+<section class="page page-params" id="page1" data-page="1">
+  <div class="params-ring-wrap"></div>
+  <div class="sec-header" style="position:relative;z-index:1;">
+    <span class="sec-tag">MODEL SPECS</span>
+    <h2 class="sec-title">硬核规格，卓越性能</h2>
+  </div>
+  <div class="params-grid">
+    <div class="param-card" data-idx="0">
+      <div class="pc-icon" style="background:linear-gradient(135deg,rgba(255,107,53,.08),rgba(255,140,66,.08))">
+        <!-- 闪电 SVG -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="#FF6B35" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+      </div>
+      <div class="pc-val orange">284B</div>
+      <div class="pc-name">总参数量</div>
+      <div class="pc-desc">推理深度全面增强</div>
+    </div>
+    <div class="param-card" data-idx="1">
+      <div class="pc-icon" style="background:linear-gradient(135deg,rgba(0,200,83,.08),rgba(0,230,118,.08))">
+        <!-- 靶心 SVG -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="#00C853" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="#00C853"/></svg>
+      </div>
+      <div class="pc-val" style="background:linear-gradient(135deg,#00C853,#00E676);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">精准</div>
+      <div class="pc-name">意图理解</div>
+      <div class="pc-desc">精准把握提问意图<br>相关性显著提升</div>
+    </div>
+    <div class="param-card" data-idx="2">
+      <div class="pc-icon">
+        <!-- 速度表 SVG -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="#0052D9" stroke-width="1.8"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 12l4-4"/><circle cx="12" cy="12" r="1" fill="#0052D9"/></svg>
+      </div>
+      <div class="pc-val">Flash</div>
+      <div class="pc-name">极速推理</div>
+      <div class="pc-desc">简单问题秒回<br>体验丝滑流畅</div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== PAGE 2 · 对话演示 - 完整线性对话流程 ===== -->
+<section class="page page-demo" data-page="2">
+  <div class="demo-light demo-light-1"></div>
+  <div class="demo-light demo-light-2"></div>
+  <div class="demo-light demo-light-3"></div>
+
+  <div class="sec-header" style="position:relative;z-index:1;">
+    <span class="sec-tag" style="color:var(--cyan);background:rgba(0,191,255,.1)">Q&A</span>
+    <h2 class="sec-title" style="color:#fff;white-space:nowrap;">你提问，ima 速度解答</h2>
+    <p class="sec-desc" style="color:rgba(255,255,255,.6);text-align:center;">即时响应，精准解答您的需求</p>
+  </div>
+
+  <div class="demo-wrap">
+    <!-- 对话框 - 一问一答 -->
+    <div class="demo-chat">
+      <div class="chat-header">
+        <!-- 聊天头像 ima 熊猫 -->
+        <div class="chat-avatar">
+          <img src="ima-panda-logo.png" alt="ima" style="width:100%;height:100%;object-fit:contain;">
+        </div>
+        <div>
+          <div class="chat-name">ima.copilot AI工作台</div>
+          <div class="chat-model">DeepSeek V4-Flash · 已激活</div>
+        </div>
+      </div>
+
+      <!-- 用户提问 -->
+      <div class="bubble user" id="bubble-user-1">
+        <div class="bubble-av">我</div>
+        <div class="bubble-txt">帮我总结这份 50 页财报的核心亮点与风险点</div>
+      </div>
+
+      <!-- AI 快速解答 -->
+      <div class="bubble ima" id="bubble-ima-1">
+        <div class="bubble-av">
+          <img src="ima-panda-logo.png" alt="ima" style="width:100%;height:100%;object-fit:contain;">
+        </div>
+        <div class="bubble-txt">
+          <span id="demoText1">正在思考中</span><span class="cursor" id="cursor1"></span>
+          <div class="thinking" id="thinking1">
+            <div class="thinking-dot"></div>
+            <div class="thinking-dot"></div>
+            <div class="thinking-dot"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI 回答内容 -->
+      <div class="bubble ima" id="bubble-ima-2">
+        <div class="bubble-av">
+          <img src="ima-panda-logo.png" alt="ima" style="width:100%;height:100%;object-fit:contain;">
+        </div>
+        <div class="bubble-txt" id="demoAnswer">
+          <strong style="color:var(--cyan)">✓ 分析完成</strong>
+          <div style="margin-top:8px;">
+            <strong>核心亮点：</strong>营收同比增长 24%，AI 业务贡献占比提升至 38%<br>
+            <strong>风险点：</strong>海外市场波动导致 Q4 增速放缓，需关注汇率影响
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== PAGE 3 · 核心特性 ===== -->
+<section class="page page-features" data-page="3">
+  <div class="feat-deco feat-deco-1"></div>
+  <div class="feat-deco feat-deco-2"></div>
+
+  <div class="sec-header">
+    <span class="sec-tag">CAPABILITIES</span>
+    <h2 class="sec-title">两大核心能力全面升级</h2>
+    <p class="sec-desc">无论是长文档智能分析还是灵活问答，DeepSeek V4-Flash 带来全方位性能提升</p>
+  </div>
+
+  <div class="feats-grid">
+    <div class="feat-card" data-fi="0">
+      <div class="feat-bg-num">01</div>
+      <div class="feat-icon-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#0052D9" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+      </div>
+      <div class="feat-title">长文档智能处理</div>
+      <div class="feat-desc">超大上下文窗口，在处理与分析长篇、复杂业务文档时，理解能力与准确性显著提升，告别信息碎片化。</div>
+      <div class="feat-tags">
+        <span class="feat-tag">超长文档</span>
+        <span class="feat-tag">结构化提取</span>
+        <span class="feat-tag">逻辑梳理</span>
+      </div>
+    </div>
+    <div class="feat-card" data-fi="1">
+      <div class="feat-bg-num">02</div>
+      <div class="feat-icon-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#0052D9" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </div>
+      <div class="feat-title">灵活智能问答</div>
+      <div class="feat-desc">简单问题秒回，复杂任务自动深入分析，为用户梳理脉络、生成摘要——模型自动判断问题复杂度，匹配最优处理策略。</div>
+      <div class="feat-tags">
+        <span class="feat-tag">秒级响应</span>
+        <span class="feat-tag">自适应深度</span>
+        <span class="feat-tag">生成摘要</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== PAGE 4 · 使用场景 ===== -->
+<section class="page page-scene" data-page="4">
+  <div class="scene-grid-bg"></div>
+  <svg class="scene-wave" viewBox="0 0 1440 120" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M0,60 C360,120 1080,0 1440,60 L1440,120 L0,120 Z" fill="rgba(240,244,255,0.08)"/>
+  </svg>
+
+  <div class="scene-inner">
+    <div class="sec-header">
+      <span class="sec-tag">USE CASES</span>
+      <h2 class="sec-title">每一个场景，都有更好答案</h2>
+      <p class="sec-desc">无论快速查询还是深度研究，DeepSeek V4-Flash 随时待命</p>
+    </div>
+    <div class="scene-cards">
+      <div class="scene-card" data-si="0">
+        <div class="sc-head">
+          <div class="sc-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#00BFFF" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </div>
+          <div class="sc-title">快速查询</div>
+        </div>
+        <div class="sc-desc">提出简短问题即可秒速获得精准回答，高效利用碎片化时间，信息获取一触即达。</div>
+        <div class="sc-pill">⚡ 秒级响应</div>
+      </div>
+      <div class="scene-card" data-si="1">
+        <div class="sc-head">
+          <div class="sc-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#00BFFF" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          </div>
+          <div class="sc-title">复杂业务分析</div>
+        </div>
+        <div class="sc-desc">面对复杂业务文档，自动深入分析，梳理逻辑脉络，输出结构化总结，告别信息过载。</div>
+        <div class="sc-pill">🧠 深度分析</div>
+      </div>
+      <div class="scene-card" data-si="2">
+        <div class="sc-head">
+          <div class="sc-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#00BFFF" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 13h6M9 17h4"/></svg>
+          </div>
+          <div class="sc-title">知识库问答</div>
+        </div>
+        <div class="sc-desc">更精准理解提问意图，从海量知识库中提取最相关内容，回答准确性与完整性大幅提升。</div>
+        <div class="sc-pill">📖 精准检索</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== PAGE 5 · CTA ===== -->
+<section class="page page-cta" id="page5" data-page="5">
+  <div class="orb orb-a" style="opacity:.4"></div>
+  <div class="orb orb-b" style="opacity:.3"></div>
+  <div class="cta-glow"></div>
+
+  <div class="cta-wrap">
+    <div class="cta-badge">
+      <span class="chip-dot"></span>
+      DeepSeek V4-Flash 现已可用
+    </div>
+    <h2 class="cta-title">
+      立即体验<br>
+      <span class="t-grad">更智能的知识协作</span>
+    </h2>
+    <p class="cta-sub">打开 ima.copilot，切换至 DeepSeek V4-Flash 模型，感受精准、流畅的全新智能体验</p>
+
+    <div class="path-guide">
+      <span class="path-step">打开 ima.copilot</span>
+      <span class="path-arr">→</span>
+      <span>模型选择</span>
+      <span class="path-arr">→</span>
+      <span class="path-final">切换 DeepSeek V4-Flash</span>
+      <span class="path-arr">→</span>
+      <span>开始对话 ✓</span>
+    </div>
+
+    <a href="https://ima.qq.com" style="display:inline-flex;align-items:center;gap:10px;background:linear-gradient(135deg,#0052D9,#00D4FF);color:#fff;font-size:16px;font-weight:600;padding:16px 40px;border-radius:14px;text-decoration:none;box-shadow:0 4px 20px rgba(0,82,217,0.4);position:relative;z-index:10;">
+      <img src="play-icon.svg" style="width:18px;height:18px;flex-shrink:0;display:block;" alt="" onerror="this.style.display='none';this.parentNode.style.paddingLeft='56px';">
+      打开 ima.copilot AI工作台
+    </a>
+  </div>
+</section>
+
+</div><!-- /pages-wrap -->
+
+<!-- 页脚 -->
+<footer style="background:#fff;border-top:1px solid rgba(0,82,217,.1);padding:20px;text-align:center;position:relative;z-index:1;">
+  <div style="display:inline-flex;align-items:center;gap:8px;margin-bottom:6px;">
+    <div class="nav-icon" style="width:24px;height:24px;border-radius:6px;">
+      <img src="ima-panda-logo.png" alt="ima" style="width:100%;height:100%;object-fit:contain;">
+    </div>
+    <span style="font-size:13px;font-weight:600;color:#4A5568;">腾讯ima.copilot AI工作台</span>
+  </div>
+  <p style="font-size:12px;color:#8896A4;">© 2026 Tencent. All Rights Reserved.</p>
+</footer>
+
+<a href="#" class="back-top" id="backTop">↑</a>
+
+<!-- ============================================================
+     JavaScript：GSAP 动效 + 粒子 + 线性对话流程动画
+     ============================================================ -->
+<script>
+gsap.registerPlugin(ScrollTrigger, TextPlugin);
+
+/* ─── 粒子背景 ─── */
+(function(){
+  const cv = document.getElementById('pcanvas');
+  const cx = cv.getContext('2d');
+  let pts = [];
+
+  function resize(){
+    cv.width = cv.parentElement.clientWidth;
+    cv.height = cv.parentElement.clientHeight;
+  }
+  function init(){
+    pts = [];
+    const n = Math.min(70, Math.floor(cv.width/15));
+    for(let i=0;i<n;i++){
+      pts.push({
+        x:Math.random()*cv.width, y:Math.random()*cv.height,
+        r:Math.random()*1.8+.4,
+        vx:(Math.random()-.5)*.35, vy:(Math.random()-.5)*.35,
+        a:Math.random()*.3+.08
+      });
+    }
+  }
+  function draw(){
+    cx.clearRect(0,0,cv.width,cv.height);
+    for(const p of pts){
+      cx.beginPath();cx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      cx.fillStyle=`rgba(100,160,255,${p.a})`;cx.fill();
+      p.x+=p.vx; p.y+=p.vy;
+      if(p.x<0||p.x>cv.width) p.vx*=-1;
+      if(p.y<0||p.y>cv.height) p.vy*=-1;
+    }
+    for(let i=0;i<pts.length;i++){
+      for(let j=i+1;j<pts.length;j++){
+        const dx=pts[i].x-pts[j].x, dy=pts[i].y-pts[j].y;
+        const d=Math.sqrt(dx*dx+dy*dy);
+        if(d<110){
+          cx.beginPath();
+          cx.strokeStyle=`rgba(80,130,255,${.05*(1-d/110)})`;
+          cx.lineWidth=.6;
+          cx.moveTo(pts[i].x,pts[i].y);cx.lineTo(pts[j].x,pts[j].y);
+          cx.stroke();
+        }
+      }
+    }
+    requestAnimationFrame(draw);
+  }
+  resize(); init(); draw();
+  window.addEventListener('resize',()=>{resize();init();});
+})();
+
+/* ─── 导航圆点 ─── */
+const pages = document.querySelectorAll('.page[data-page]');
+const dotWrap = document.getElementById('navDots');
+pages.forEach((_,i)=>{
+  const d = document.createElement('div');
+  d.className = 'nav-dot'+(i===0?' active':'');
+  d.title = `第 ${i+1} 屏`;
+  d.addEventListener('click',()=>{
+    const pg = document.querySelector(`.page[data-page="${i}"]`);
+    if(pg) pg.scrollIntoView({behavior:'smooth'});
+  });
+  dotWrap.appendChild(d);
+});
+const allDots = dotWrap.querySelectorAll('.nav-dot');
+
+pages.forEach(pg=>{
+  ScrollTrigger.create({
+    trigger: pg,
+    start: 'top center',
+    end: 'bottom center',
+    onToggle: ({isActive})=>{
+      if(isActive){
+        const idx = parseInt(pg.dataset.page);
+        allDots.forEach((d,i)=>d.classList.toggle('active',i===idx));
+      }
+    }
+  });
+});
+
+/* ─── HERO 动效 ─── */
+const heroTl = gsap.timeline({delay:.2});
+heroTl
+  .to('.hero-chip',{opacity:1,y:0,duration:.7,ease:'power3.out'})
+  .to('.hero-pretitle',{opacity:1,y:0,duration:.6,ease:'power2.out'},'-=.3')
+  .from('.hero-title span',{
+    opacity:0, y:40, stagger:.12, duration:.8, ease:'power3.out'
+  },'-=.3')
+  .to('.hero-sub',{opacity:1,y:0,duration:.7,ease:'power2.out'},'-=.4')
+  .to('.hero-stats',{opacity:1,y:0,duration:.6,ease:'power2.out'},'-=.3')
+  .to('.hero-btns',{opacity:1,y:0,duration:.6,ease:'power2.out'},'-=.3')
+  .to('#scrollHint',{opacity:1,duration:.8},'-=.1');
+
+/* ─── Hero 数字计数 ─── */
+function countTo(el, target, suffix, dur){
+  let v=0; const step=target/(dur/16);
+  const t=setInterval(()=>{
+    v=Math.min(v+step,target);
+    el.textContent=Math.round(v)+suffix;
+    if(v>=target)clearInterval(t);
+  },16);
+}
+setTimeout(()=>{
+  countTo(document.getElementById('cntParam'),284,'B',1600);
+},1000);
+
+/* ─── 线性对话流程动画（一问一答） ─── */
+const demoLines = [
+  { text: '正在思考中', delay: 0 },
+];
+
+function typeText(el, text, speed = 18) {
+  return new Promise(resolve => {
+    gsap.to(el, {
+      duration: text.length * (speed / 1000),
+      text: { value: text, delimiter: '' },
+      ease: 'none',
+      onComplete: resolve
+    });
+  });
+}
+
+async function runDemoAnimation() {
+  const bubbleUser1 = document.getElementById('bubble-user-1');
+  const bubbleIma1  = document.getElementById('bubble-ima-1');
+  const bubbleIma2  = document.getElementById('bubble-ima-2');
+
+  const text1     = document.getElementById('demoText1');
+  const cursor1   = document.getElementById('cursor1');
+  const thinking1 = document.getElementById('thinking1');
+  const answerEl  = document.getElementById('demoAnswer');
+
+  // 1. 用户提问淡入
+  await gsap.to(bubbleUser1, { opacity: 1, y: 0, duration: 0.35, ease: 'power2.out' });
+  await new Promise(r => setTimeout(r, 300));
+
+  // 2. AI 气泡淡入 + 打字效果
+  await gsap.to(bubbleIma1, { opacity: 1, y: 0, duration: 0.3, ease: 'power2.out' });
+  await typeText(text1, demoLines[0].text, 16);
+
+  // 3. 快速思考动画（0.4秒闪过）
+  thinking1.style.display = 'flex';
+  cursor1.style.display = 'none';
+  await new Promise(r => setTimeout(r, 400));
+  thinking1.style.display = 'none';
+
+  // 4. 回答气泡淡入
+  if (bubbleIma2) {
+    await gsap.to(bubbleIma2, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' });
+  }
+}
+
+// 进入 demo 区触发
+ScrollTrigger.create({
+  trigger:'.page-demo',
+  start:'top 60%',
+  once:true,
+  onEnter:()=>{
+    runDemoAnimation();
+  }
+});
+
+/* ─── PAGE 1 参数卡动效 ─── */
+gsap.utils.toArray('.param-card').forEach((card,i)=>{
+  gsap.from(card,{
+    scrollTrigger:{trigger:card,start:'top 85%',once:true},
+    opacity:0, y:50, scale:.92, rotation:i%2===0?-3:3,
+    duration:.7, delay:i*.12, ease:'back.out(1.6)'
+  });
+});
+
+/* ─── PAGE 3 特性卡动效 ─── */
+gsap.utils.toArray('.feat-card').forEach((card,i)=>{
+  const from = i===0?{x:-60}:{x:60};
+  gsap.from(card,{
+    scrollTrigger:{trigger:card,start:'top 88%',once:true},
+    opacity:0, ...from, duration:.8, delay:i*.15, ease:'power3.out'
+  });
+});
+
+/* ─── PAGE 4 场景卡错位动效 ─── */
+gsap.utils.toArray('.scene-card').forEach((card,i)=>{
+  const dir = i===0?{x:-50}:i===1?{y:50}:{x:50};
+  gsap.from(card,{
+    scrollTrigger:{trigger:card,start:'top 88%',once:true},
+    opacity:0, ...dir, y:30, duration:.75, delay:i*.1, ease:'power2.out'
+  });
+});
+
+/* ─── PAGE 5 Copilot 步骤 ─── */
+gsap.utils.toArray('.cop-step').forEach((s,i)=>{
+  gsap.from(s,{
+    scrollTrigger:{trigger:s,start:'top 90%',once:true},
+    opacity:0, y:40, duration:.65, delay:i*.18, ease:'power2.out'
+  });
+});
+
+/* ─── PAGE 6 CTA 动效 ─── */
+gsap.from('.cta-wrap > *',{
+  scrollTrigger:{trigger:'.page-cta',start:'top 60%',once:true},
+  opacity:0, y:40, stagger:.15, duration:.7, ease:'power2.out'
+});
+
+/* ─── Section 标题字符逐字入场 ─── */
+gsap.utils.toArray('.sec-title').forEach(title=>{
+  gsap.from(title,{
+    scrollTrigger:{trigger:title,start:'top 85%',once:true},
+    opacity:0, y:32, duration:.7, ease:'power3.out'
+  });
+});
+gsap.utils.toArray('.sec-desc').forEach(desc=>{
+  gsap.from(desc,{
+    scrollTrigger:{trigger:desc,start:'top 85%',once:true},
+    opacity:0, y:20, duration:.6, delay:.1, ease:'power2.out'
+  });
+});
+
+/* ─── Copilot 卡片整体入场 ─── */
+gsap.from('.copilot-hero-card',{
+  scrollTrigger:{trigger:'.copilot-hero-card',start:'top 80%',once:true},
+  opacity:0, y:60, scale:.97, duration:.9, ease:'power3.out'
+});
+
+/* ─── 进度条 + 返回顶部 ─── */
+const prog = document.getElementById('prog');
+const backTop = document.getElementById('backTop');
+window.addEventListener('scroll',()=>{
+  const pct = window.scrollY / (document.documentElement.scrollHeight - window.innerHeight) * 100;
+  prog.style.width = pct+'%';
+  backTop.classList.toggle('show', window.scrollY > 500);
+});
+backTop.addEventListener('click',e=>{e.preventDefault();window.scrollTo({top:0,behavior:'smooth'});});
+
+/* ─── 平滑锚点 ─── */
+document.querySelectorAll('a[href^="#"]').forEach(a=>{
+  a.addEventListener('click',e=>{
+    const id = a.getAttribute('href');
+    if(id==='#'){e.preventDefault();window.scrollTo({top:0,behavior:'smooth'});return;}
+    const t=document.querySelector(id);
+    if(t){e.preventDefault();t.scrollIntoView({behavior:'smooth'});}
+  });
+});
+</script>
+</body>
+</html>
